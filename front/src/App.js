@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+const DEFAULT_API_BASE = 'http://localhost:8080/api';
 
 function App() {
+  const apiBase = useMemo(() => process.env.REACT_APP_API_BASE ?? DEFAULT_API_BASE, []);
   const [helloMessage, setHelloMessage] = useState('로딩 중...');
   const [name, setName] = useState('');
   const [greetMessage, setGreetMessage] = useState('');
@@ -10,32 +11,47 @@ function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${API_BASE}/hello`)
-      .then(res => {
-        if (!res.ok) throw new Error('서버 응답을 받지 못했습니다.');
-        return res.json();
-      })
-      .then(data => setHelloMessage(data.text))
-      .catch(() => setHelloMessage('API에서 메시지를 가져오지 못했습니다. 서버를 확인해주세요.'));
-  }, []);
+    const fetchHello = async () => {
+      try {
+        const response = await fetch(`${apiBase}/hello`);
+        if (!response.ok) throw new Error('서버 응답을 받지 못했습니다.');
+        const data = await response.json();
+        setHelloMessage(data.text);
+      } catch (err) {
+        setHelloMessage('API에서 메시지를 가져오지 못했습니다. 서버를 확인해주세요.');
+      }
+    };
+
+    fetchHello();
+  }, [apiBase]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const trimmed = name.trim();
+
+    if (!trimmed) {
+      setError('이름을 입력해주세요.');
+      setGreetMessage('');
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
     setGreetMessage('');
 
     try {
-      const response = await fetch(`${API_BASE}/greet`, {
+      const response = await fetch(`${apiBase}/greet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name: trimmed })
       });
 
       if (!response.ok) {
-        throw new Error('요청 중 문제가 발생했습니다.');
+        const errorText = await response.json().catch(() => null);
+        const fallback = response.status === 400 ? '올바른 이름을 입력해주세요.' : '요청 중 문제가 발생했습니다.';
+        throw new Error(errorText?.text ?? fallback);
       }
 
       const data = await response.json();
