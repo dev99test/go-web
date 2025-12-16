@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Game2048 from './components/Game2048';
 
 const DEFAULT_API_BASE = 'http://localhost:8080/api';
 
@@ -92,6 +93,10 @@ function App() {
         </form>
         {greetMessage && <div style={styles.result}>{greetMessage}</div>}
         {error && <div style={styles.error}>{error}</div>}
+      </section>
+
+      <section style={styles.card}>
+        <Game2048 />
       </section>
     </div>
   );
