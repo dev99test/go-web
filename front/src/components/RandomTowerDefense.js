@@ -1,103 +1,70 @@
 import React, { useEffect, useMemo, useReducer, useRef } from 'react';
 import './RandomTowerDefense.css';
+import { GRID_HEIGHT, GRID_WIDTH, PATH_TILES } from './rt_d_rules';
 import {
-  GRID_HEIGHT,
-  GRID_WIDTH,
-  PATH_TILES,
-  initGame,
+  initGameState,
   rollTower,
-  canPlace,
-  startNextWave,
-  tick,
-  canMoveOrGameOver
-} from './rt_d_rules';
+  placeTower,
+  startWave,
+  tickGame,
+  upgradeTower,
+  sellTower
+} from './gameEngine';
 
 const pathKeySet = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
 
+const setSelectedTower = (state, playerId, towerId) => {
+  const player = state.players[playerId];
+  if (!player) return state;
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: { ...player, selectedTowerId: towerId }
+    }
+  };
+};
+
 const reducer = (state, action) => {
+  const playerId = state.currentPlayerId;
   switch (action.type) {
     case 'RESET':
-      return initGame();
-    case 'ROLL_TOWER': {
-      if (state.gold < 10 || state.pendingTower || state.gameOver) return state;
-      return { ...state, gold: state.gold - 10, pendingTower: rollTower() };
-    }
+      return initGameState();
+    case 'ROLL_TOWER':
+      return rollTower(state, playerId);
     case 'PLACE_TOWER': {
-      if (!state.pendingTower) return state;
       const { x, y } = action.payload;
-      if (!canPlace(state, x, y)) return state;
-      const tower = {
-        ...state.pendingTower,
-        x,
-        y,
-        id: state.nextTowerId
-      };
-      return {
-        ...state,
-        towers: [...state.towers, tower],
-        pendingTower: null,
-        selectedTowerId: tower.id,
-        nextTowerId: state.nextTowerId + 1
-      };
+      return placeTower(state, playerId, x, y);
     }
     case 'SELECT_TOWER':
-      return { ...state, selectedTowerId: action.payload };
+      return setSelectedTower(state, playerId, action.payload);
     case 'SELL_TOWER': {
-      const targetId = state.selectedTowerId;
-      if (!targetId) return state;
-      const tower = state.towers.find((t) => t.id === targetId);
-      if (!tower) return state;
-      const refund = Math.round(tower.invested * 0.7);
-      return {
-        ...state,
-        towers: state.towers.filter((t) => t.id !== targetId),
-        selectedTowerId: null,
-        gold: state.gold + refund
-      };
+      const towerId = state.players[playerId].selectedTowerId;
+      return sellTower(state, playerId, towerId);
     }
     case 'UPGRADE_TOWER': {
-      const targetId = state.selectedTowerId;
-      if (!targetId) return state;
-      const towerIndex = state.towers.findIndex((t) => t.id === targetId);
-      if (towerIndex === -1) return state;
-      const tower = state.towers[towerIndex];
-      const cost = 12 * tower.level;
-      if (state.gold < cost) return state;
-      const upgraded = {
-        ...tower,
-        level: tower.level + 1,
-        invested: tower.invested + cost,
-        damage: tower.damage * 1.12,
-        range: tower.range + 0.1
-      };
-      const nextTowers = [...state.towers];
-      nextTowers[towerIndex] = upgraded;
-      return {
-        ...state,
-        towers: nextTowers,
-        gold: state.gold - cost
-      };
+      const towerId = state.players[playerId].selectedTowerId;
+      return upgradeTower(state, playerId, towerId);
     }
     case 'SET_SPEED':
       return { ...state, speed: action.payload };
     case 'TOGGLE_PAUSE':
-      if (state.gameOver) return state;
-      return { ...state, paused: !state.paused, running: true };
+      if (state.phase === 'GAME_OVER') return state;
+      return { ...state, paused: !state.paused };
     case 'START_WAVE':
-      return startNextWave(state);
+      return startWave(state, playerId);
     case 'TICK':
-      return tick(state, action.payload);
-    case 'GAME_OVER_CHECK':
-      return canMoveOrGameOver(state);
+      return tickGame(state, action.payload);
     default:
       return state;
   }
 };
 
 const RandomTowerDefense = () => {
-  const [state, dispatch] = useReducer(reducer, undefined, initGame);
+  const [state, dispatch] = useReducer(reducer, undefined, initGameState);
   const last = useRef(null);
   const animationRef = useRef(null);
+  const player = state.players[state.currentPlayerId];
 
   const boardCells = useMemo(
     () =>
@@ -125,36 +92,38 @@ const RandomTowerDefense = () => {
     };
   }, []);
 
-  useEffect(() => {
-    dispatch({ type: 'GAME_OVER_CHECK' });
-  }, [state.life]);
-
-  const pendingInfo = state.pendingTower ? (
+  const pendingInfo = player.pendingTower ? (
     <div className="rtd-pending">
-      <div className="rtd-slot">
-        <span>대기 타워:</span>
-        <span className="badge">{state.pendingTower.rarity}</span>
-        <span>{state.pendingTower.type}</span>
+      <div>대기 타워: {player.pendingTower.type} ({player.pendingTower.rarity})</div>
+      <div className="rtd-row" style={{ marginTop: 6 }}>
+        <span>공격력: {player.pendingTower.damage.toFixed(1)}</span>
+        <span>사거리: {player.pendingTower.range.toFixed(1)}</span>
       </div>
+      {player.pendingTower.splashRadius ? <div>스플래시: {player.pendingTower.splashRadius.toFixed(1)} 타일</div> : null}
+      {player.pendingTower.slow ? (
+        <div>
+          슬로우: {Math.round((1 - player.pendingTower.slow.amount) * 100)}% / {player.pendingTower.slow.duration.toFixed(1)}s
+        </div>
+      ) : null}
     </div>
   ) : (
     <div className="rtd-pending">대기 중인 타워가 없습니다.</div>
   );
 
-  const selected = state.towers.find((t) => t.id === state.selectedTowerId);
-  const canStartWave = !state.spawn.active && !state.gameOver;
-  const canRoll = state.gold >= 10 && !state.pendingTower && !state.gameOver;
+  const selected = player.towers.find((t) => t.id === player.selectedTowerId);
+  const canStartWave = !player.spawn.active && state.phase !== 'GAME_OVER';
+  const canRoll = player.gold >= 10 && !player.pendingTower && state.phase !== 'GAME_OVER';
 
   return (
     <div>
-      <h2 style={{ marginTop: 0, marginBottom: 12 }}>랜덤 타워 디펜스</h2>
+      <h2 style={{ marginTop: 0, marginBottom: 12 }}>랜덤 타워 디펜스 (PvP 준비)</h2>
       <p style={{ color: '#4b5563', marginTop: 0, marginBottom: 16 }}>
-        고정된 길을 따라오는 적을 막기 위해 타워를 뽑고 배치하세요. 웨이브를 진행하며 골드를 모아 업그레이드할 수 있습니다.
+        고정된 길을 따라오는 적을 막기 위해 타워를 뽑고 배치하세요. 현재는 1P 전용이지만, PvP 타입B 확장을 위한 로직 분리를 완료했습니다.
       </p>
       <div className="rtd-container">
         <div className="rtd-board-wrapper">
           <div className="rtd-board">
-            {boardCells.map((row, rowIdx) =>
+            {boardCells.map((row) =>
               row.map((cell) => (
                 <div
                   key={`${cell.x}-${cell.y}`}
@@ -165,10 +134,10 @@ const RandomTowerDefense = () => {
               ))
             )}
             <div className="rtd-overlay">
-              {state.towers.map((tower) => (
+              {player.towers.map((tower) => (
                 <div
                   key={tower.id}
-                  className={`rtd-tower ${tower.id === state.selectedTowerId ? 'selected' : ''}`}
+                  className={`rtd-tower ${tower.id === player.selectedTowerId ? 'selected' : ''}`}
                   style={{
                     left: `${((tower.x + 0.5) / GRID_WIDTH) * 100}%`,
                     top: `${((tower.y + 0.5) / GRID_HEIGHT) * 100}%`,
@@ -187,7 +156,7 @@ const RandomTowerDefense = () => {
                   {tower.type[0]}
                 </div>
               ))}
-              {state.enemies.map((enemy) => {
+              {player.enemies.map((enemy) => {
                 const idx = enemy.pathIndex;
                 const current = PATH_TILES[idx];
                 const next = PATH_TILES[idx + 1] ?? current;
@@ -208,22 +177,22 @@ const RandomTowerDefense = () => {
                   </div>
                 );
               })}
-              {state.gameOver && <div className="rtd-gameover">Game Over</div>}
+              {state.phase === 'GAME_OVER' && <div className="rtd-gameover">Game Over</div>}
             </div>
           </div>
         </div>
         <div className="rtd-panel">
           <div className="rtd-row">
             <div>Wave</div>
-            <div>{state.wave}</div>
+            <div>{player.wave}</div>
           </div>
           <div className="rtd-row">
             <div>Life</div>
-            <div className={state.life <= 5 ? 'rtd-status-bad' : 'rtd-status-good'}>{state.life}</div>
+            <div className={player.life <= 5 ? 'rtd-status-bad' : 'rtd-status-good'}>{player.life}</div>
           </div>
           <div className="rtd-row">
             <div>Gold</div>
-            <div>{state.gold}G</div>
+            <div>{player.gold}G</div>
           </div>
           <div className="rtd-row">
             <div>게임 속도</div>
@@ -233,9 +202,7 @@ const RandomTowerDefense = () => {
                 onChange={(e) => dispatch({ type: 'SET_SPEED', payload: Number(e.target.value) })}
                 style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #1f2937' }}
               >
-                <option value={0.5}>0.5x</option>
                 <option value={1}>1x</option>
-                <option value={1.5}>1.5x</option>
                 <option value={2}>2x</option>
               </select>
             </div>
@@ -244,7 +211,11 @@ const RandomTowerDefense = () => {
             <button className="rtd-btn" onClick={() => dispatch({ type: 'RESET' })}>
               시작/재시작
             </button>
-            <button className="rtd-btn secondary" onClick={() => dispatch({ type: 'TOGGLE_PAUSE' })} disabled={!state.running || state.gameOver}>
+            <button
+              className="rtd-btn secondary"
+              onClick={() => dispatch({ type: 'TOGGLE_PAUSE' })}
+              disabled={state.phase === 'GAME_OVER'}
+            >
               {state.paused ? '재개' : '일시정지'}
             </button>
             <button className="rtd-btn" onClick={() => dispatch({ type: 'START_WAVE' })} disabled={!canStartWave}>
@@ -258,7 +229,7 @@ const RandomTowerDefense = () => {
           </div>
           {pendingInfo}
           {selected ? (
-            <div style={{ padding: '10px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ padding: '10px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(195,255,255,0.08)' }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>선택된 타워</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span className="badge">{selected.rarity}</span>
@@ -276,7 +247,7 @@ const RandomTowerDefense = () => {
                 <button
                   className="rtd-btn"
                   onClick={() => dispatch({ type: 'UPGRADE_TOWER' })}
-                  disabled={state.gold < 12 * selected.level}
+                  disabled={player.gold < 12 * selected.level}
                 >
                   업그레이드 ({12 * selected.level}G)
                 </button>
