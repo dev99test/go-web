@@ -173,7 +173,9 @@ const RandomTowerDefense = () => {
                       opacity: 0.7 + 0.3 * hpRatio
                     }}
                   >
-                    {Math.max(1, Math.round(enemy.hp))}
+                    <div className="rtd-hpbar">
+                      <div className="rtd-hpbar-fill" style={{ width: `${Math.min(1, hpRatio) * 100}%` }} />
+                    </div>
                   </div>
                 );
               })}
