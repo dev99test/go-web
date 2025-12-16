@@ -1,0 +1,12 @@
+{
+  "name": "go-web-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\"",
+    "dev:front": "npm --prefix front run dev || npm --prefix front run start",
+    "dev:back": "cd back && go run ./cmd/..."
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
