@@ -65,12 +65,13 @@
   font-size: 0;
   line-height: 0;
   overflow: visible;
+  pointer-events: none;
 }
 
 .rtd-overlay {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .rtd-grid-layer {
