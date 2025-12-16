@@ -133,7 +133,7 @@ const RandomTowerDefense = () => {
                 />
               ))
             )}
-            <div className="rtd-overlay">
+            <div className="rtd-tower-layer">
               {player.towers.map((tower) => (
                 <div
                   key={tower.id}
@@ -156,6 +156,8 @@ const RandomTowerDefense = () => {
                   {tower.type[0]}
                 </div>
               ))}
+            </div>
+            <div className="rtd-overlay">
               {player.enemies.map((enemy) => {
                 const idx = enemy.pathIndex;
                 const current = PATH_TILES[idx];

@@ -45,6 +45,7 @@
   color: #0f172a;
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.15);
+  pointer-events: auto;
 }
 
 .rtd-tower.selected {
@@ -71,7 +72,7 @@
 .rtd-overlay {
   position: absolute;
   inset: 0;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .rtd-grid-layer {
@@ -81,6 +82,12 @@
   grid-template-columns: repeat(12, 1fr);
   grid-template-rows: repeat(8, 1fr);
   gap: 4px;
+}
+
+.rtd-tower-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .rtd-panel {
