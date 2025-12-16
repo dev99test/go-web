@@ -162,7 +162,7 @@ const RandomTowerDefense = () => {
                 const next = PATH_TILES[idx + 1] ?? current;
                 const x = current[0] + (next[0] - current[0]) * enemy.pathProgress;
                 const y = current[1] + (next[1] - current[1]) * enemy.pathProgress;
-                const hpRatio = Math.max(0, enemy.hp) / enemy.maxHp;
+                const hpRatio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
                 return (
                   <div
                     key={enemy.id}
@@ -174,7 +174,7 @@ const RandomTowerDefense = () => {
                     }}
                   >
                     <div className="rtd-hpbar">
-                      <div className="rtd-hpbar-fill" style={{ width: `${Math.min(1, hpRatio) * 100}%` }} />
+                      <div className="rtd-hpbar-fill" style={{ width: `${hpRatio * 100}%` }} />
                     </div>
                   </div>
                 );
