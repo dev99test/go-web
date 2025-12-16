@@ -53,7 +53,7 @@
 
 .rtd-enemy {
   position: absolute;
-  width: 60%;
+  width: 20%;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: linear-gradient(120deg, #f87171, #b91c1c);
