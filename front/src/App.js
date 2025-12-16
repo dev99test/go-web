@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Game2048 from './components/Game2048';
+import RandomTowerDefense from './components/RandomTowerDefense';
 
 const DEFAULT_API_BASE = 'http://localhost:8080/api';
 
@@ -97,6 +98,10 @@ function App() {
 
       <section style={styles.card}>
         <Game2048 />
+      </section>
+
+      <section style={{ ...styles.card, maxWidth: '960px' }}>
+        <RandomTowerDefense />
       </section>
     </div>
   );
