@@ -29,8 +29,11 @@ export const TOWER_TYPES = {
 
 export const RARITY_TABLE = [
   { name: 'Common', chance: 0.7, multiplier: 1.0 },
-  { name: 'Rare', chance: 0.25, multiplier: 1.35 },
-  { name: 'Epic', chance: 0.05, multiplier: 1.8 }
+  { name: 'Rare', chance: 0.23, multiplier: 1.35 },
+  { name: 'Epic', chance: 0.055, multiplier: 1.8 },
+  { name: 'Unique', chance: 0.012, multiplier: 2.4 },
+  { name: 'Legendary', chance: 0.0025, multiplier: 3.2 },
+  { name: 'Mythic', chance: 0.0005, multiplier: 4.2 }
 ];
 
 export const BASE_GOLD = 30;

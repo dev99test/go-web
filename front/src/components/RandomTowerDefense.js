@@ -14,6 +14,35 @@ import {
 
 const pathKeySet = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
 
+const rarityLabels = {
+  Common: '일반',
+  Rare: '희귀',
+  Epic: '영웅',
+  Unique: '고유',
+  Legendary: '전설',
+  Mythic: '신화'
+};
+
+const rarityColor = (rarity) => {
+  switch (rarity) {
+    case 'Rare':
+      return '#60a5fa';
+    case 'Epic':
+      return '#fbbf24';
+    case 'Unique':
+      return '#2dd4bf';
+    case 'Legendary':
+      return '#f97316';
+    case 'Mythic':
+      return 'linear-gradient(135deg, #ef4444, #8b5cf6)';
+    case 'Common':
+    default:
+      return '#cbd5e1';
+  }
+};
+
+const rarityLabel = (rarity) => rarityLabels[rarity] ?? rarity;
+
 const setSelectedTower = (state, playerId, towerId) => {
   const player = state.players[playerId];
   if (!player) return state;
@@ -124,7 +153,9 @@ const RandomTowerDefense = () => {
 
   const pendingInfo = player.pendingTower ? (
     <div className="rtd-pending">
-      <div>대기 타워: {player.pendingTower.type} ({player.pendingTower.rarity})</div>
+      <div>
+        대기 타워: {player.pendingTower.type} ({rarityLabel(player.pendingTower.rarity)})
+      </div>
       <div className="rtd-row" style={{ marginTop: 6 }}>
         <span>공격력: {player.pendingTower.damage.toFixed(1)}</span>
         <span>사거리: {player.pendingTower.range.toFixed(1)}</span>
@@ -174,12 +205,7 @@ const RandomTowerDefense = () => {
                   style={{
                     left: `${((tower.x + 0.5) / GRID_WIDTH) * 100}%`,
                     top: `${((tower.y + 0.5) / GRID_HEIGHT) * 100}%`,
-                    background:
-                      tower.rarity === 'Epic'
-                        ? '#fbbf24'
-                        : tower.rarity === 'Rare'
-                        ? '#60a5fa'
-                        : '#cbd5e1'
+                    background: rarityColor(tower.rarity)
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -273,7 +299,9 @@ const RandomTowerDefense = () => {
             <div style={{ padding: '10px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(195,255,255,0.08)' }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>선택된 타워</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span className="badge">{selected.rarity}</span>
+                <span className="badge" style={{ background: rarityColor(selected.rarity), color: '#0f172a' }}>
+                  {rarityLabel(selected.rarity)}
+                </span>
                 <span>{selected.type}</span>
                 <span>Lv.{selected.level}</span>
               </div>

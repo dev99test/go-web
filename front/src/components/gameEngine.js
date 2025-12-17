@@ -41,6 +41,14 @@ const createTowerStats = (type, rarity) => {
 
 const findRarityEntry = (name) => RARITY_TABLE.find((r) => r.name === name);
 
+const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Unique', 'Legendary', 'Mythic'];
+
+const nextRarity = (rarity) => {
+  const idx = RARITY_ORDER.indexOf(rarity);
+  if (idx < 0 || idx === RARITY_ORDER.length - 1) return null;
+  return RARITY_ORDER[idx + 1];
+};
+
 const applyLevelScaling = (stats, level) => {
   if (!level || level <= 1) return stats;
   const bonus = level - 1;
@@ -56,12 +64,6 @@ const buildTowerStats = (type, rarityName, level) => {
   if (!rarity) return null;
   const baseStats = createTowerStats(type, rarity);
   return applyLevelScaling(baseStats, level ?? 1);
-};
-
-const nextRarityEntry = (rarityName) => {
-  const idx = RARITY_TABLE.findIndex((r) => r.name === rarityName);
-  if (idx === -1 || idx === RARITY_TABLE.length - 1) return null;
-  return RARITY_TABLE[idx + 1];
 };
 
 const createPlayerState = () => ({
@@ -420,18 +422,21 @@ export const mergeTowersByRarity = (state, playerId, sourceTowerId, targetTowerI
   const matches = source.type === target.type && source.rarity === target.rarity;
   if (!matches) return { nextState: state, error: '동일 타입/등급의 타워만 합성할 수 있습니다.' };
 
-  const upgradedRarity = nextRarityEntry(source.rarity);
-  if (!upgradedRarity) {
-    return { nextState: state, error: 'Epic은 더 이상 합성할 수 없습니다.' };
+  const nextRarityName = nextRarity(source.rarity);
+  if (!nextRarityName) {
+    return { nextState: state, error: '신화 등급은 더 이상 합성할 수 없습니다.' };
   }
 
-  const stats = buildTowerStats(source.type, upgradedRarity.name, source.level ?? 1);
+  const rarityEntry = findRarityEntry(nextRarityName);
+  if (!rarityEntry) return { nextState: state, error: '합성 중 스탯 계산에 실패했습니다.' };
+
+  const stats = buildTowerStats(source.type, rarityEntry.name, source.level ?? 1);
   if (!stats) return { nextState: state, error: '합성 중 스탯 계산에 실패했습니다.' };
 
   const merged = {
     ...source,
     id: player.nextTowerId,
-    rarity: upgradedRarity.name,
+    rarity: rarityEntry.name,
     ...stats,
     invested: (source.invested ?? 0) + (target.invested ?? 0),
     cdRemaining: 0
