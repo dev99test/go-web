@@ -75,6 +75,15 @@
   pointer-events: none;
 }
 
+.rtd-range {
+  position: absolute;
+  border: 2px dashed rgba(96, 165, 250, 0.5);
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.04) 65%, rgba(37, 99, 235, 0) 75%);
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
 .rtd-grid-layer {
   position: absolute;
   inset: 0;
@@ -88,6 +97,59 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.rtd-effect-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rtd-projectile {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  opacity: 0.95;
+}
+
+.rtd-proj-arrow {
+  background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+  border: 1px solid rgba(148, 163, 184, 0.8);
+}
+
+.rtd-proj-cannon {
+  background: linear-gradient(135deg, #f59e0b, #b45309);
+  border: 1px solid rgba(251, 191, 36, 0.8);
+}
+
+.rtd-proj-frost {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  border: 1px solid rgba(59, 130, 246, 0.8);
+}
+
+.rtd-impact {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 70%, rgba(255, 255, 255, 0) 75%);
+  pointer-events: none;
+}
+
+.rtd-impact-cannon {
+  border-color: rgba(251, 191, 36, 0.7);
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.35) 0%, rgba(251, 191, 36, 0.05) 75%, rgba(251, 191, 36, 0) 80%);
+}
+
+.rtd-impact-frost {
+  border-color: rgba(125, 211, 252, 0.9);
+  background: radial-gradient(circle, rgba(125, 211, 252, 0.35) 0%, rgba(125, 211, 252, 0.08) 75%, rgba(125, 211, 252, 0) 85%);
+}
+
+.rtd-impact-arrow {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.06) 70%, rgba(255, 255, 255, 0) 80%);
 }
 
 .rtd-panel {

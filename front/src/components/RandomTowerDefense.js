@@ -9,7 +9,8 @@ import {
   tickGame,
   upgradeTower,
   sellTower,
-  mergeTowersByRarity
+  mergeTowersByRarity,
+  getEnemyPosition
 } from './gameEngine';
 
 const pathKeySet = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
@@ -68,6 +69,8 @@ const reducer = (state, action) => {
     }
     case 'SELECT_TOWER':
       return { ...setSelectedTower(state, playerId, action.payload), uiMessage: '' };
+    case 'CLEAR_SELECTION':
+      return { ...setSelectedTower(state, playerId, null), mergeMode: false, mergeSourceTowerId: null, uiMessage: '' };
     case 'SELL_TOWER': {
       const towerId = state.players[playerId].selectedTowerId;
       return { ...sellTower(state, playerId, towerId), mergeMode: false, mergeSourceTowerId: null };
@@ -133,6 +136,8 @@ const RandomTowerDefense = () => {
     []
   );
 
+  const tileToPercent = (coord, isHeight) => ((coord) / (isHeight ? GRID_HEIGHT : GRID_WIDTH)) * 100;
+
   useEffect(() => {
     const loop = (ts) => {
       if (last.current == null) {
@@ -193,7 +198,11 @@ const RandomTowerDefense = () => {
                 <div
                   key={`${cell.x}-${cell.y}`}
                   className={`rtd-cell ${cell.isPath ? 'rtd-path' : ''}`}
-                  onClick={() => dispatch({ type: 'PLACE_TOWER', payload: { x: cell.x, y: cell.y } })}
+                  onClick={() =>
+                    player.pendingTower
+                      ? dispatch({ type: 'PLACE_TOWER', payload: { x: cell.x, y: cell.y } })
+                      : dispatch({ type: 'CLEAR_SELECTION' })
+                  }
                   role="presentation"
                 />
               ))
@@ -223,11 +232,7 @@ const RandomTowerDefense = () => {
             </div>
             <div className="rtd-overlay">
               {player.enemies.map((enemy) => {
-                const idx = enemy.pathIndex;
-                const current = PATH_TILES[idx];
-                const next = PATH_TILES[idx + 1] ?? current;
-                const x = current[0] + (next[0] - current[0]) * enemy.pathProgress;
-                const y = current[1] + (next[1] - current[1]) * enemy.pathProgress;
+                const { x, y } = getEnemyPosition(enemy, PATH_TILES);
                 const hpRatio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
                 return (
                   <div
@@ -245,7 +250,58 @@ const RandomTowerDefense = () => {
                   </div>
                 );
               })}
+              {selected ? (
+                <div
+                  className="rtd-range"
+                  style={{
+                    left: `${tileToPercent(selected.x + 0.5, false)}%`,
+                    top: `${tileToPercent(selected.y + 0.5, true)}%`,
+                    width: `${tileToPercent(selected.range * 2, false)}%`,
+                    height: `${tileToPercent(selected.range * 2, true)}%`
+                  }}
+                />
+              ) : null}
               {state.phase === 'GAME_OVER' && <div className="rtd-gameover">Game Over</div>}
+            </div>
+            <div className="rtd-effect-layer">
+              {player.effects.map((effect) => {
+                const { kind, phase } = effect;
+                const current = phase === 'flight'
+                  ? {
+                      x: effect.from.x + (effect.to.x - effect.from.x) * effect.t,
+                      y: effect.from.y + (effect.to.y - effect.from.y) * effect.t
+                    }
+                  : effect.to;
+                const left = `${tileToPercent(current.x, false)}%`;
+                const top = `${tileToPercent(current.y, true)}%`;
+                if (phase === 'flight') {
+                  const size = kind === 'cannon' ? 10 : 8;
+                  return (
+                    <div
+                      key={effect.id}
+                      className={`rtd-projectile rtd-proj-${kind}`}
+                      style={{ left, top, width: size, height: size }}
+                    />
+                  );
+                }
+                const radiusTiles =
+                  kind === 'cannon'
+                    ? effect.meta?.splashRadius ?? 1
+                    : kind === 'frost'
+                    ? 0.7
+                    : 0.4;
+                const width = `${tileToPercent(radiusTiles * 2, false)}%`;
+                const height = `${tileToPercent(radiusTiles * 2, true)}%`;
+                const opacityBase = (effect.ttl ?? 0) / (effect.impactDuration || 0.1);
+                const opacity = Math.max(0, Math.min(1, opacityBase));
+                return (
+                  <div
+                    key={effect.id}
+                    className={`rtd-impact rtd-impact-${kind}`}
+                    style={{ left, top, width, height, opacity }}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>

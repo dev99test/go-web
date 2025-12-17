@@ -76,6 +76,8 @@ const createPlayerState = () => ({
   wave: 0,
   enemies: [],
   towers: [],
+  effects: [],
+  nextEffectId: 1,
   pendingTower: null,
   selectedTowerId: null,
   spawn: { active: false, remaining: 0, cooldown: 0, wave: 0 },
@@ -177,7 +179,7 @@ export const startWave = (state, playerId) => {
   };
 };
 
-const getEnemyPosition = (enemy, pathTiles) => {
+export const getEnemyPosition = (enemy, pathTiles) => {
   const idx = enemy.pathIndex;
   const current = pathTiles[idx];
   const next = pathTiles[idx + 1];
@@ -188,6 +190,12 @@ const getEnemyPosition = (enemy, pathTiles) => {
     x: current[0] + dx * enemy.pathProgress,
     y: current[1] + dy * enemy.pathProgress
   };
+};
+
+const EFFECT_CONFIG = {
+  arrow: { flight: 0.18, impact: 0.08 },
+  cannon: { flight: 0.22, impact: 0.18 },
+  frost: { flight: 0.16, impact: 0.14 }
 };
 
 const progressValue = (enemy) => enemy.pathIndex + enemy.pathProgress;
@@ -204,7 +212,7 @@ const attackTarget = (tower, enemies, pathTiles) => {
     })
     .sort((a, b) => progressValue(b.enemy) - progressValue(a.enemy));
 
-  if (!inRange.length) return { enemies, goldGain: 0 };
+  if (!inRange.length) return { enemies, goldGain: 0, effect: null };
 
   let updated = enemies.map((e) => ({ ...e }));
   const mainTarget = updated.find((e) => e.id === inRange[0].enemy.id);
@@ -236,7 +244,24 @@ const attackTarget = (tower, enemies, pathTiles) => {
 
   const alive = updated.filter((e) => e.hp > 0);
   const goldGain = updated.length - alive.length;
-  return { enemies: alive, goldGain: goldGain * 2, towerCd: tower.cooldown };
+
+  const kind = tower.type === 'Cannon' ? 'cannon' : tower.type === 'Frost' ? 'frost' : 'arrow';
+  const config = EFFECT_CONFIG[kind];
+  const effect = config
+    ? {
+        kind,
+        phase: 'flight',
+        from: { x: tower.x + 0.5, y: tower.y + 0.5 },
+        to: { x: inRange[0].pos.x + 0.5, y: inRange[0].pos.y + 0.5 },
+        t: 0,
+        ttl: config.flight,
+        flightDuration: config.flight,
+        impactDuration: config.impact,
+        meta: tower.splashRadius ? { splashRadius: tower.splashRadius } : {}
+      }
+    : null;
+
+  return { enemies: alive, goldGain: goldGain * 2, towerCd: tower.cooldown, effect };
 };
 
 const moveEnemy = (enemy, dt, pathTiles) => {
@@ -278,7 +303,9 @@ const tickPlayer = (player, dt) => {
   let spawn = { ...player.spawn };
   let enemies = player.enemies.map((e) => ({ ...e }));
   const towers = player.towers.map((t) => ({ ...t }));
+  let effects = player.effects.map((e) => ({ ...e }));
   let nextEnemyId = player.nextEnemyId;
+  let nextEffectId = player.nextEffectId;
 
   if (spawn.active) {
     spawn.cooldown -= dt;
@@ -319,12 +346,36 @@ const tickPlayer = (player, dt) => {
     const cdRemaining = Math.max(0, (tower.cdRemaining ?? 0) - dt);
     towers[i] = { ...tower, cdRemaining };
     if (cdRemaining <= 0 && enemies.length) {
-      const { enemies: nextEnemies, goldGain, towerCd } = attackTarget(tower, enemies, player.pathTiles);
+      const { enemies: nextEnemies, goldGain, towerCd, effect } = attackTarget(
+        tower,
+        enemies,
+        player.pathTiles
+      );
       enemies = nextEnemies;
       gold += goldGain;
       towers[i] = { ...towers[i], cdRemaining: towerCd };
+      if (effect) {
+        effects.push({ ...effect, id: nextEffectId++ });
+      }
     }
   }
+
+  effects = effects
+    .map((eff) => {
+      const config = EFFECT_CONFIG[eff.kind] ?? { flight: eff.flightDuration ?? 0.2, impact: eff.impactDuration ?? 0.1 };
+      if (eff.phase === 'flight') {
+        const flight = eff.flightDuration ?? config.flight;
+        const progress = flight > 0 ? dt / flight : 1;
+        const t = eff.t + progress;
+        const ttl = (eff.ttl ?? flight) - dt;
+        if (t >= 1 || ttl <= 0) {
+          return { ...eff, phase: 'impact', t: 1, ttl: eff.impactDuration ?? config.impact };
+        }
+        return { ...eff, t, ttl };
+      }
+      return { ...eff, ttl: (eff.ttl ?? eff.impactDuration ?? 0.1) - dt };
+    })
+    .filter((eff) => eff.ttl > 0);
 
   return {
     ...player,
@@ -333,6 +384,8 @@ const tickPlayer = (player, dt) => {
     enemies,
     towers,
     spawn,
+    effects,
+    nextEffectId,
     nextEnemyId
   };
 };
