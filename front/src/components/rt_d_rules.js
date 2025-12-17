@@ -36,5 +36,8 @@ export const RARITY_TABLE = [
 export const BASE_GOLD = 30;
 export const BASE_LIFE = 20;
 
+export const MERGE_DAMAGE_MULT = 1.35;
+export const MERGE_RANGE_BONUS = 0.15;
+
 export const enemyBaseHp = (wave) => 30 + wave * 12;
 export const enemyBaseSpeed = (wave) => 1.2 + wave * 0.03;

@@ -8,7 +8,8 @@ import {
   startWave,
   tickGame,
   upgradeTower,
-  sellTower
+  sellTower,
+  mergeTowers
 } from './gameEngine';
 
 const pathKeySet = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
@@ -29,7 +30,7 @@ const reducer = (state, action) => {
   const playerId = state.currentPlayerId;
   switch (action.type) {
     case 'RESET':
-      return initGameState();
+      return { ...initGameState(), mergeMode: false, mergeSourceTowerId: null, uiMessage: '' };
     case 'ROLL_TOWER':
       return rollTower(state, playerId);
     case 'PLACE_TOWER': {
@@ -37,10 +38,10 @@ const reducer = (state, action) => {
       return placeTower(state, playerId, x, y);
     }
     case 'SELECT_TOWER':
-      return setSelectedTower(state, playerId, action.payload);
+      return { ...setSelectedTower(state, playerId, action.payload), uiMessage: '' };
     case 'SELL_TOWER': {
       const towerId = state.players[playerId].selectedTowerId;
-      return sellTower(state, playerId, towerId);
+      return { ...sellTower(state, playerId, towerId), mergeMode: false, mergeSourceTowerId: null };
     }
     case 'UPGRADE_TOWER': {
       const towerId = state.players[playerId].selectedTowerId;
@@ -55,13 +56,42 @@ const reducer = (state, action) => {
       return startWave(state, playerId);
     case 'TICK':
       return tickGame(state, action.payload);
+    case 'START_MERGE_MODE': {
+      const selectedId = state.players[playerId].selectedTowerId;
+      if (!selectedId || state.phase === 'GAME_OVER') return state;
+      return {
+        ...state,
+        mergeMode: true,
+        mergeSourceTowerId: selectedId,
+        uiMessage: '합성 모드: 대상 타워를 클릭하세요.'
+      };
+    }
+    case 'CANCEL_MERGE_MODE':
+      return { ...state, mergeMode: false, mergeSourceTowerId: null, uiMessage: '' };
+    case 'MERGE_WITH_TARGET': {
+      if (!state.mergeMode) return state;
+      const { nextState, error, message } = mergeTowers(
+        state,
+        playerId,
+        state.mergeSourceTowerId,
+        action.payload
+      );
+      if (error) {
+        return { ...nextState, mergeMode: true, mergeSourceTowerId: state.mergeSourceTowerId, uiMessage: error };
+      }
+      return { ...nextState, mergeMode: false, mergeSourceTowerId: null, uiMessage: message ?? '' };
+    }
     default:
       return state;
   }
 };
 
 const RandomTowerDefense = () => {
-  const [state, dispatch] = useReducer(reducer, undefined, initGameState);
+  const [state, dispatch] = useReducer(
+    reducer,
+    undefined,
+    () => ({ ...initGameState(), mergeMode: false, mergeSourceTowerId: null, uiMessage: '' })
+  );
   const last = useRef(null);
   const animationRef = useRef(null);
   const player = state.players[state.currentPlayerId];
@@ -113,6 +143,11 @@ const RandomTowerDefense = () => {
   const selected = player.towers.find((t) => t.id === player.selectedTowerId);
   const canStartWave = !player.spawn.active && state.phase !== 'GAME_OVER';
   const canRoll = player.gold >= 10 && !player.pendingTower && state.phase !== 'GAME_OVER';
+  const mergeCandidates = selected
+    ? player.towers.filter(
+        (t) => t.id !== selected.id && t.type === selected.type && t.level === selected.level && t.rarity === selected.rarity
+      ).length
+    : 0;
 
   return (
     <div>
@@ -150,7 +185,11 @@ const RandomTowerDefense = () => {
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    dispatch({ type: 'SELECT_TOWER', payload: tower.id });
+                    if (state.mergeMode) {
+                      dispatch({ type: 'MERGE_WITH_TARGET', payload: tower.id });
+                    } else {
+                      dispatch({ type: 'SELECT_TOWER', payload: tower.id });
+                    }
                   }}
                 >
                   {tower.type[0]}
@@ -259,10 +298,35 @@ const RandomTowerDefense = () => {
                   판매
                 </button>
               </div>
+              <div className="rtd-buttons" style={{ marginTop: 8 }}>
+                <button
+                  className="rtd-btn"
+                  onClick={() => dispatch({ type: 'START_MERGE_MODE' })}
+                  disabled={!selected || state.phase === 'GAME_OVER'}
+                >
+                  합성 모드 시작
+                </button>
+                {state.mergeMode ? (
+                  <button className="rtd-btn secondary" onClick={() => dispatch({ type: 'CANCEL_MERGE_MODE' })}>
+                    합성 취소
+                  </button>
+                ) : null}
+              </div>
+              <div style={{ marginTop: 6, color: '#e5e7eb', fontSize: 13 }}>
+                합성 가능 대상: {mergeCandidates}개
+              </div>
+              {state.mergeMode ? (
+                <div style={{ marginTop: 4, color: '#fbbf24', fontSize: 13 }}>합성 모드: 대상 타워를 클릭하세요.</div>
+              ) : null}
             </div>
           ) : (
             <div style={{ color: '#9ca3af' }}>타워를 클릭해 정보를 확인하세요.</div>
           )}
+          {state.uiMessage ? (
+            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: '#e5e7eb' }}>
+              {state.uiMessage}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

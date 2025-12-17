@@ -1,4 +1,16 @@
-import { BASE_GOLD, BASE_LIFE, GRID_HEIGHT, GRID_WIDTH, PATH_TILES, RARITY_TABLE, TOWER_TYPES, enemyBaseHp, enemyBaseSpeed } from './rt_d_rules';
+import {
+  BASE_GOLD,
+  BASE_LIFE,
+  GRID_HEIGHT,
+  GRID_WIDTH,
+  MERGE_DAMAGE_MULT,
+  MERGE_RANGE_BONUS,
+  PATH_TILES,
+  RARITY_TABLE,
+  TOWER_TYPES,
+  enemyBaseHp,
+  enemyBaseSpeed
+} from './rt_d_rules';
 
 const PATH_SET = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
 
@@ -369,6 +381,52 @@ export const sellTower = (state, playerId, towerId) => {
       }
     }
   };
+};
+
+export const mergeTowers = (state, playerId, sourceTowerId, targetTowerId) => {
+  const player = state.players[playerId];
+  if (!player) return { nextState: state, error: '플레이어 상태를 찾을 수 없습니다.' };
+  if (state.phase === 'GAME_OVER') return { nextState: state, error: '게임 오버 상태에서는 합성할 수 없습니다.' };
+  if (!sourceTowerId || !targetTowerId) return { nextState: state, error: '합성할 두 타워를 모두 선택하세요.' };
+  if (sourceTowerId === targetTowerId) return { nextState: state, error: '다른 두 타워를 선택해야 합니다.' };
+
+  const source = player.towers.find((t) => t.id === sourceTowerId);
+  const target = player.towers.find((t) => t.id === targetTowerId);
+  if (!source || !target) return { nextState: state, error: '타워를 찾을 수 없습니다.' };
+
+  const matches =
+    source.type === target.type && source.level === target.level && source.rarity === target.rarity;
+  if (!matches) {
+    return { nextState: state, error: '동일 타입/레벨/등급의 타워만 합성할 수 있습니다.' };
+  }
+
+  const merged = {
+    ...source,
+    id: player.nextTowerId,
+    level: source.level + 1,
+    damage: source.damage * MERGE_DAMAGE_MULT,
+    range: source.range + MERGE_RANGE_BONUS,
+    invested: (source.invested ?? 0) + (target.invested ?? 0),
+    cdRemaining: 0
+  };
+
+  const towers = player.towers.filter((t) => t.id !== sourceTowerId && t.id !== targetTowerId);
+  towers.push(merged);
+
+  const nextState = {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: {
+        ...player,
+        towers,
+        selectedTowerId: merged.id,
+        nextTowerId: player.nextTowerId + 1
+      }
+    }
+  };
+
+  return { nextState, error: null, message: '합성이 완료되었습니다.' };
 };
 
 export const buildEnemySpec = (enemy) => ({
