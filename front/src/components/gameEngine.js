@@ -3,8 +3,6 @@ import {
   BASE_LIFE,
   GRID_HEIGHT,
   GRID_WIDTH,
-  MERGE_DAMAGE_MULT,
-  MERGE_RANGE_BONUS,
   PATH_TILES,
   RARITY_TABLE,
   TOWER_TYPES,
@@ -41,6 +39,31 @@ const createTowerStats = (type, rarity) => {
   };
 };
 
+const findRarityEntry = (name) => RARITY_TABLE.find((r) => r.name === name);
+
+const applyLevelScaling = (stats, level) => {
+  if (!level || level <= 1) return stats;
+  const bonus = level - 1;
+  return {
+    ...stats,
+    damage: stats.damage * Math.pow(1.12, bonus),
+    range: stats.range + 0.1 * bonus
+  };
+};
+
+const buildTowerStats = (type, rarityName, level) => {
+  const rarity = findRarityEntry(rarityName);
+  if (!rarity) return null;
+  const baseStats = createTowerStats(type, rarity);
+  return applyLevelScaling(baseStats, level ?? 1);
+};
+
+const nextRarityEntry = (rarityName) => {
+  const idx = RARITY_TABLE.findIndex((r) => r.name === rarityName);
+  if (idx === -1 || idx === RARITY_TABLE.length - 1) return null;
+  return RARITY_TABLE[idx + 1];
+};
+
 const createPlayerState = () => ({
   width: GRID_WIDTH,
   height: GRID_HEIGHT,
@@ -74,7 +97,7 @@ export const rollTower = (state, playerId) => {
   if (!player || player.gold < 10 || player.pendingTower || state.phase === 'GAME_OVER') return state;
   const rarity = pickRarity();
   const type = randomTowerType();
-  const stats = createTowerStats(type, rarity);
+  const stats = buildTowerStats(type, rarity.name, 1);
   const pendingTower = {
     type,
     rarity: rarity.name,
@@ -383,7 +406,7 @@ export const sellTower = (state, playerId, towerId) => {
   };
 };
 
-export const mergeTowers = (state, playerId, sourceTowerId, targetTowerId) => {
+export const mergeTowersByRarity = (state, playerId, sourceTowerId, targetTowerId) => {
   const player = state.players[playerId];
   if (!player) return { nextState: state, error: '플레이어 상태를 찾을 수 없습니다.' };
   if (state.phase === 'GAME_OVER') return { nextState: state, error: '게임 오버 상태에서는 합성할 수 없습니다.' };
@@ -394,18 +417,22 @@ export const mergeTowers = (state, playerId, sourceTowerId, targetTowerId) => {
   const target = player.towers.find((t) => t.id === targetTowerId);
   if (!source || !target) return { nextState: state, error: '타워를 찾을 수 없습니다.' };
 
-  const matches =
-    source.type === target.type && source.level === target.level && source.rarity === target.rarity;
-  if (!matches) {
-    return { nextState: state, error: '동일 타입/레벨/등급의 타워만 합성할 수 있습니다.' };
+  const matches = source.type === target.type && source.rarity === target.rarity;
+  if (!matches) return { nextState: state, error: '동일 타입/등급의 타워만 합성할 수 있습니다.' };
+
+  const upgradedRarity = nextRarityEntry(source.rarity);
+  if (!upgradedRarity) {
+    return { nextState: state, error: 'Epic은 더 이상 합성할 수 없습니다.' };
   }
+
+  const stats = buildTowerStats(source.type, upgradedRarity.name, source.level ?? 1);
+  if (!stats) return { nextState: state, error: '합성 중 스탯 계산에 실패했습니다.' };
 
   const merged = {
     ...source,
     id: player.nextTowerId,
-    level: source.level + 1,
-    damage: source.damage * MERGE_DAMAGE_MULT,
-    range: source.range + MERGE_RANGE_BONUS,
+    rarity: upgradedRarity.name,
+    ...stats,
     invested: (source.invested ?? 0) + (target.invested ?? 0),
     cdRemaining: 0
   };

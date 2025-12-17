@@ -9,7 +9,7 @@ import {
   tickGame,
   upgradeTower,
   sellTower,
-  mergeTowers
+  mergeTowersByRarity
 } from './gameEngine';
 
 const pathKeySet = new Set(PATH_TILES.map((p) => `${p[0]},${p[1]}`));
@@ -70,7 +70,7 @@ const reducer = (state, action) => {
       return { ...state, mergeMode: false, mergeSourceTowerId: null, uiMessage: '' };
     case 'MERGE_WITH_TARGET': {
       if (!state.mergeMode) return state;
-      const { nextState, error, message } = mergeTowers(
+      const { nextState, error, message } = mergeTowersByRarity(
         state,
         playerId,
         state.mergeSourceTowerId,
@@ -144,9 +144,7 @@ const RandomTowerDefense = () => {
   const canStartWave = !player.spawn.active && state.phase !== 'GAME_OVER';
   const canRoll = player.gold >= 10 && !player.pendingTower && state.phase !== 'GAME_OVER';
   const mergeCandidates = selected
-    ? player.towers.filter(
-        (t) => t.id !== selected.id && t.type === selected.type && t.level === selected.level && t.rarity === selected.rarity
-      ).length
+    ? player.towers.filter((t) => t.id !== selected.id && t.type === selected.type && t.rarity === selected.rarity).length
     : 0;
 
   return (
