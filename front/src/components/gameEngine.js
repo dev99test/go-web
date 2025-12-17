@@ -72,6 +72,7 @@ const createPlayerState = () => ({
   pathTiles: PATH_TILES,
   life: BASE_LIFE,
   gold: BASE_GOLD,
+  rollCost: 1,
   wave: 0,
   enemies: [],
   towers: [],
@@ -96,7 +97,8 @@ export const initGameState = () => ({
 
 export const rollTower = (state, playerId) => {
   const player = state.players[playerId];
-  if (!player || player.gold < 10 || player.pendingTower || state.phase === 'GAME_OVER') return state;
+  if (!player || player.pendingTower || state.phase === 'GAME_OVER') return state;
+  if (player.gold < player.rollCost) return state;
   const rarity = pickRarity();
   const type = randomTowerType();
   const stats = buildTowerStats(type, rarity.name, 1);
@@ -104,7 +106,7 @@ export const rollTower = (state, playerId) => {
     type,
     rarity: rarity.name,
     level: 1,
-    invested: 10,
+    invested: player.rollCost,
     ...stats,
     cdRemaining: 0
   };
@@ -114,7 +116,8 @@ export const rollTower = (state, playerId) => {
       ...state.players,
       [playerId]: {
         ...player,
-        gold: player.gold - 10,
+        gold: player.gold - player.rollCost,
+        rollCost: player.rollCost + 1,
         pendingTower
       }
     }

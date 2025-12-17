@@ -173,7 +173,8 @@ const RandomTowerDefense = () => {
 
   const selected = player.towers.find((t) => t.id === player.selectedTowerId);
   const canStartWave = !player.spawn.active && state.phase !== 'GAME_OVER';
-  const canRoll = player.gold >= 10 && !player.pendingTower && state.phase !== 'GAME_OVER';
+  const canRoll =
+    player.gold >= player.rollCost && !player.pendingTower && state.phase !== 'GAME_OVER';
   const mergeCandidates = selected
     ? player.towers.filter((t) => t.id !== selected.id && t.type === selected.type && t.rarity === selected.rarity).length
     : 0;
@@ -291,7 +292,7 @@ const RandomTowerDefense = () => {
           </div>
           <div className="rtd-buttons">
             <button className="rtd-btn" onClick={() => dispatch({ type: 'ROLL_TOWER' })} disabled={!canRoll}>
-              타워 뽑기 (10G)
+              타워 뽑기 ({player.rollCost}G)
             </button>
           </div>
           {pendingInfo}
